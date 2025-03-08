@@ -21,5 +21,5 @@ jobs:
 
     - name: Run bot.ps1 as Administrator
       run: |
-        Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File $PWD\bot.ps1" -Verb runAs
+        Start-Process pwsh -ArgumentList "-ExecutionPolicy Bypass -File $PWD\bot.ps1" -Verb runAs
       shell: pwsh
