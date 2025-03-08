@@ -11,12 +11,31 @@ on:
 jobs:
   run-bot:
     runs-on: windows-latest
+    timeout-minutes: 10  # Set the job timeout to 10 minutes
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Set execution policy to bypass
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+      shell: pwsh
+
     - name: Run bot.ps1 as Administrator
       run: |
-        Start-Process pwsh -ArgumentList "-ExecutionPolicy Bypass -File $PWD\bot.ps1" -Verb runAs
+        try {
+          # Start the script as Administrator and capture output
+          Start-Process pwsh -ArgumentList "-ExecutionPolicy Bypass -File $PWD\bot.ps1" -Verb runAs -Wait
+        } catch {
+          Write-Error "Script execution failed"
+          exit 1
+        }
+        # Sleep for 10 minutes (600 seconds) to simulate long execution time
+        Start-Sleep -Seconds 600
+      shell: pwsh
+
+    - name: Output completion message
+      run: |
+        Write-Host "Bot script completed successfully."
       shell: pwsh
